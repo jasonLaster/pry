@@ -8,8 +8,18 @@ class Pry
       attr_accessor :module_object
 
       def module_object
-        name = args.first
-        @module_object ||= WrappedModule.from_str(name, target)
+        if @module_object
+          @module_object
+        else
+          name = args.first
+          @module_object = WrappedModule.from_str(name, target)
+          if @module_object
+            sup = @module_object.ancestors.select do |anc|
+              anc.class == @module_object.wrapped.class
+            end[opts[:super]]
+            @module_object = sup ? Pry::WrappedModule(sup) : nil
+          end
+        end
       end
 
       # @param [String]
@@ -18,7 +28,7 @@ class Pry
       def input_type(input,target)
         if input == ""
           :blank
-        elsif target.eval("defined? #{input} ") =~ /variable/ &&
+        elsif target.eval("defined? #{input} ") =~ /variable|constant/ &&
               target.eval(input).respond_to?(:source_location)
           :sourcable_object
         elsif Pry::Method.from_str(input,target)
@@ -128,7 +138,24 @@ class Pry
           opt.on :a, :all, "Show docs for all definitions and monkeypatches of the module/class"
         end
 
+        def process_sourcable_object
+          name = args.first
+          object = target.eval(name)
+
+          file_name, line = object.source_location
+
+          doc = Pry::Code.from_file(file_name).comment_describing(line)
+          doc = strip_leading_hash_and_whitespace_from_ruby_comments(doc)
+
+          result = ""
+          result << "\n#{Pry::Helpers::Text.bold('From:')} #{file_name} @ line #{line}:\n"
+          result << "#{Pry::Helpers::Text.bold('Number of lines:')} #{doc.lines.count}\n\n"
+          result << doc
+          result << "\n"
+        end
+
         def process_module
+          raise Pry::CommandError, "No documentation found." if module_object.nil?
           if opts.present?(:all)
             all_modules
           else
@@ -258,6 +285,7 @@ class Pry
           e.g: `show-source Pry#rep`         # source for Pry#rep method
           e.g: `show-source Pry`             # source for Pry class
           e.g: `show-source Pry -a`          # source for all Pry class definitions (all monkey patches)
+          e.g: `show-source Pry --super      # source for superclass of Pry (Object class)
 
           https://github.com/pry/pry/wiki/Source-browsing#wiki-Show_method
         BANNER
@@ -307,6 +335,7 @@ class Pry
         end
 
         def process_module
+          raise Pry::CommandError, "No documentation found." if module_object.nil?
           if opts.present?(:all)
             all_modules
           else

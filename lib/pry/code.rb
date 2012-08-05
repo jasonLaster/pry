@@ -41,7 +41,7 @@ class Pry
         else
           if File.readable?(fn)
             f = File.open(fn, 'r')
-            code_type = type_from_filename(fn)
+            code_type ||= type_from_filename(fn)
           else
             raise MethodSource::SourceNotFoundError, "Cannot open #{fn.inspect} for reading."
           end
@@ -354,6 +354,15 @@ class Pry
     # @return [String]  the code.
     def expression_at(line_number, consume=0)
       self.class.expression_at(raw, line_number, :consume => consume)
+    end
+
+    # Get the (approximate) Module.nesting at the give line number.
+    #
+    # @param [Fixnum]  line_number  line number starting from 1
+    # @param [Module] top_module   the module in which this code exists
+    # @return [Array<Module>]  a list of open modules.
+    def nesting_at(line_number, top_module=Object)
+      Pry::Indent.nesting_at(raw, line_number)
     end
 
     # Return an unformatted String of the code.
