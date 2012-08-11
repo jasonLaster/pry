@@ -244,7 +244,7 @@ class Pry
     def self.build_path(input)
       return proc {|input| input.to_s }, input if input[/\/\./]
 
-      trailing_slash = input[-1] == '/'
+      trailing_slash = input.end_with?('/')
       contexts = input.chomp('/').split(/\//)
       input = contexts[-1]
 
