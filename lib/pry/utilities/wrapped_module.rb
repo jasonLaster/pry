@@ -1,4 +1,4 @@
-require 'pry/module_candidate'
+require 'pry/utilities/module_candidate'
 
 class Pry
   class << self

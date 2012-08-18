@@ -1,4 +1,4 @@
-require "pry/indent"
+require "pry/utilities/indent"
 
 ##
 # Pry is a powerful alternative to the standard IRB shell for Ruby. It
