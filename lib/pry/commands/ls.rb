@@ -45,11 +45,12 @@ class Pry
                   opts.present?(:globals) || opts.present?(:locals) || opts.present?(:constants) ||
                   opts.present?(:ivars))
 
-      show_methods   = opts.present?(:methods) || opts.present?(:'instance-methods') || opts.present?(:ppp) || !has_opts
-      show_self_methods = (!has_opts && Module === obj)
-      show_constants = opts.present?(:constants) || (!has_opts && Module === obj)
-      show_ivars     = opts.present?(:ivars) || !has_opts
-      show_locals    = opts.present?(:locals) || (!has_opts && args.empty?)
+      @show_methods   = opts.present?(:methods) || opts.present?(:'instance-methods') || opts.present?(:ppp) || !has_opts
+      @show_self_methods = (!has_opts && Module === obj)
+      @show_constants = opts.present?(:constants) || (!has_opts && Module === obj)
+      @show_ivars     = opts.present?(:ivars) || !has_opts
+      @show_locals    = opts.present?(:locals) || (!has_opts && args.empty?)
+      @show_globals   = opts.present?(:globals)
 
       grep_regex, grep = [Regexp.new(opts[:G] || "."), lambda{ |x| x.grep(grep_regex) }]
 
@@ -60,47 +61,50 @@ class Pry
       raise Pry::CommandError, "-c only makes sense with a Module or a Class" if opts.present?(:constants) && !args.empty? && !(Module === obj)
 
 
-      if opts.present?(:globals)
-        output_section("global variables", grep[format_globals(target.eval("global_variables"))])
+      if @show_globals
+        @globals = target.eval("global_variables")
+        @formated_globals = grep[format_globals(@globals)]
       end
 
-      if show_constants
+      if @show_constants
         mod = Module === obj ? obj : Object
-        constants = mod.constants
-        constants -= (mod.ancestors - [mod]).map(&:constants).flatten unless opts.present?(:verbose)
-        output_section("constants", grep[format_constants(mod, constants)])
+        @constants = mod.constants
+        @constants -= (mod.ancestors - [mod]).map(&:constants).flatten unless opts.present?(:verbose)
+        @formated_constants = grep[format_constants(mod, @constants)]
       end
 
-      if show_methods
+      if @show_methods
         # methods is a hash {Module/Class => [Pry::Methods]}
         methods = all_methods(obj).group_by(&:owner)
 
         # reverse the resolution order so that the most useful information appears right by the prompt
-        resolution_order(obj).take_while(&below_ceiling(obj)).reverse.each do |klass|
+        @methods_mro = resolution_order(obj).take_while(&below_ceiling(obj)).reverse.map do |klass|
           methods_here = format_methods((methods[klass] || []).select{ |m| m.name =~ grep_regex })
-          output_section "#{Pry::WrappedModule.new(klass).method_prefix}methods", methods_here
+          {:klass_prefix => Pry::WrappedModule.new(klass).method_prefix, :methods => methods_here}
         end
       end
 
-      if show_self_methods
-        methods = all_methods(obj, true).select{ |m| m.owner == obj && m.name =~ grep_regex }
-        output_section "#{Pry::WrappedModule.new(obj).method_prefix}methods", format_methods(methods)
+      if @show_self_methods
+        @self_methods = all_methods(obj, true).select{ |m| m.owner == obj && m.name =~ grep_regex }
+        @self_prefix = Pry::WrappedModule.new(obj).method_prefix
       end
 
-      if show_ivars
+      if @show_ivars
         klass = (Module === obj ? obj : obj.class)
-        ivars = Pry::Method.safe_send(obj, :instance_variables)
-        kvars = Pry::Method.safe_send(klass, :class_variables)
-        output_section("instance variables", format_variables(:instance_var, ivars))
-        output_section("class variables", format_variables(:class_var, kvars))
+        @ivars = Pry::Method.safe_send(obj, :instance_variables)
+        @kvars = Pry::Method.safe_send(klass, :class_variables)
       end
 
-      if show_locals
-        output_section("locals", format_locals(grep[target.eval("local_variables")]))
+      if @show_locals
+        @local_vars = grep[target.eval("local_variables")]
       end
+
+      render
     end
 
     private
+
+
 
     # http://ruby.runpaint.org/globals, and running "puts global_variables.inspect".
     BUILTIN_GLOBALS = %w($" $$ $* $, $-0 $-F $-I $-K $-W $-a $-d $-i $-l $-p $-v $-w $. $/ $\\
@@ -115,6 +119,37 @@ class Pry
     PSEUDO_GLOBALS = %w($! $' $& $` $@ $? $+ $_ $~ $1 $2 $3 $4 $5 $6 $7 $8 $9
                        $CHILD_STATUS $SAFE $ERROR_INFO $ERROR_POSITION $LAST_MATCH_INFO
                        $LAST_PAREN_MATCH $LAST_READ_LINE $MATCH $POSTMATCH $PREMATCH)
+
+
+    def render
+      if @show_globals
+        output_section("global variables", @formated_globals)
+      end
+
+      if @show_constants
+        output_section("constants", @formated_constants)
+      end
+
+      if @show_methods
+        @methods_mro.each do |level|
+          output_section "#{level[:klass_prefix]}methods", level[:methods]
+        end
+      end
+
+      if @show_self_methods
+        output_section "#{@self_prefix}methods", format_methods(@self_methods)
+      end
+
+      if @show_ivars
+        output_section("instance variables", format_variables(:instance_var, @ivars))
+        output_section("class variables", format_variables(:class_var, @kvars))
+      end
+
+      if @show_locals
+        output_section("locals", format_locals(@local_vars))
+      end
+    end
+
 
     # Get all the methods that we'll want to output
     def all_methods(obj, instance_methods=false)
@@ -244,11 +279,8 @@ class Pry
 
     def format_locals(locals)
       locals.sort_by(&:downcase).map do |name|
-        if _pry_.sticky_locals.include?(name.to_sym)
-          color(:pry_var, name)
-        else
-          color(:local_var, name)
-        end
+        type = _pry_.sticky_locals.include?(name.to_sym) ? :pry_var : :local_var
+        color(type, name)
       end
     end
 
@@ -264,3 +296,6 @@ class Pry
     end
   end
 end
+
+
+
