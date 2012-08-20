@@ -425,6 +425,10 @@ class Pry
         args.values_at(*(0..(arity - 1)).to_a)
       end
     end
+
+    def render
+    end
+
   end
 
   # A super-class for Commands that are created with a single block.
