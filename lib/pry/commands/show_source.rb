@@ -67,48 +67,13 @@ class Pry
     end
 
     def process_module
+
       raise Pry::CommandError, "No documentation found." if module_object.nil?
       if opts.present?(:all)
         all_modules
       else
         normal_module
       end
-    end
-
-    def normal_module
-      file_name = line = code = nil
-      attempt do |rank|
-        file_name, line = module_object.candidate(rank).source_location
-        set_file_and_dir_locals(file_name)
-        code = Code.from_module(module_object, module_start_line(module_object, rank), rank).
-          with_line_numbers(use_line_numbers?).to_s
-      end
-
-      result = ""
-      result << "\n#{Pry::Helpers::Text.bold('From:')} #{file_name} @ line #{line}:\n"
-      result << "#{Pry::Helpers::Text.bold('Number of lines:')} #{code.lines.count}\n\n"
-      result << code
-    end
-
-    def all_modules
-      mod = module_object
-
-      result = ""
-      result << "Found #{mod.number_of_candidates} candidates for `#{mod.name}` definition:\n"
-      mod.number_of_candidates.times do |v|
-        candidate = mod.candidate(v)
-        begin
-          result << "\nCandidate #{v+1}/#{mod.number_of_candidates}: #{candidate.file} @ line #{candidate.line}:\n"
-          code = Code.from_module(mod, module_start_line(mod, v), v).
-            with_line_numbers(use_line_numbers?).to_s
-          result << "Number of lines: #{code.lines.count}\n\n"
-          result << code
-        rescue Pry::RescuableException
-          result << "\nNo code found.\n"
-          next
-        end
-      end
-      result
     end
 
     def process_command
