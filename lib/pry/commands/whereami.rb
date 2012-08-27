@@ -43,25 +43,34 @@ class Pry
     end
 
     def process
-      if opts.quiet? && (internal_binding?(target) || !code?)
-        return
-      elsif internal_binding?(target)
+
+      return  if opts.quiet? && (internal_binding?(target) || !code?)
+
+      if internal_binding?(target)
         if target_self == TOPLEVEL_BINDING.eval("self")
-          output.puts "At the top level."
+          @location = "At the top level."
         else
-          output.puts "Inside #{Pry.view_clip(target_self)}."
+          @location = "Inside #{Pry.view_clip(target_self)}."
         end
+        render(true)
         return
       end
 
       set_file_and_dir_locals(@file)
-
-      output.puts "\n#{text.bold('From:')} #{location}:\n\n"
-      output.puts code.with_line_numbers.with_marker(@line)
-      output.puts
+      render
     end
 
     private
+
+    def render(internal_binding=false)
+      if internal_binding
+        output.puts @location
+      else
+        output.puts "\n#{text.bold('From:')} #{location}:\n\n"
+        output.puts code.with_line_numbers.with_marker(@line)
+        output.puts
+      end
+    end
 
     def show_method?
       args.empty? && @method && @method.source? && @method.source_range.count < 20 &&
