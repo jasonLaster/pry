@@ -4,15 +4,25 @@ class Pry
     description "Show nesting information."
 
     def process
-      output.puts "Nesting status:"
+      @stack_info = _pry_.binding_stack.map.with_index do |obj, index|
+        {
+          :info => Pry.view_clip(obj.eval('self')),
+          :level => index
+        }
+      end
+      render
+    end
+
+    private
+
+    def render
+      output.puts "Nesting status :)"
       output.puts "--"
-      _pry_.binding_stack.each_with_index do |obj, level|
-        if level == 0
-          output.puts "#{level}. #{Pry.view_clip(obj.eval('self'))} (Pry top level)"
-        else
-          output.puts "#{level}. #{Pry.view_clip(obj.eval('self'))}"
-        end
+      @stack_info.each do |frame|
+        top = frame[:index] == 0 ? '(Pry top level)' : ''
+        output.puts "#{frame[:level]}. #{frame[:info]} #{top}"
       end
     end
+
   end
 end
