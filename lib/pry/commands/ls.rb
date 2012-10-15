@@ -120,34 +120,18 @@ class Pry
                        $CHILD_STATUS $SAFE $ERROR_INFO $ERROR_POSITION $LAST_MATCH_INFO
                        $LAST_PAREN_MATCH $LAST_READ_LINE $MATCH $POSTMATCH $PREMATCH)
 
-
     def render
-      if @show_globals
-        output_section("global variables", @formated_globals)
+      output_section "global variables", @formated_globals if @show_globals
+      output_section "constants", @formated_constants if @show_constants
+
+      @methods_mro.each do |level|
+        output_section "#{level[:klass_prefix]}methods", level[:methods] if @show_methods
       end
 
-      if @show_constants
-        output_section("constants", @formated_constants)
-      end
-
-      if @show_methods
-        @methods_mro.each do |level|
-          output_section "#{level[:klass_prefix]}methods", level[:methods]
-        end
-      end
-
-      if @show_self_methods
-        output_section "#{@self_prefix}methods", format_methods(@self_methods)
-      end
-
-      if @show_ivars
-        output_section("instance variables", format_variables(:instance_var, @ivars))
-        output_section("class variables", format_variables(:class_var, @kvars))
-      end
-
-      if @show_locals
-        output_section("locals", format_locals(@local_vars))
-      end
+      output_section "#{@self_prefix}methods", format_methods(@self_methods) if @show_self_methods
+      output_section "instance variables", format_variables(:instance_var, @ivars) if @show_ivars
+      output_section "class variables", format_variables(:class_var, @kvars) if @show_ivars
+      output_section "locals", format_locals(@local_vars) if @show_locals
     end
 
 
