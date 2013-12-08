@@ -13,15 +13,15 @@ describe 'cd' do
       end
 
       def binding_stack
-        eval '_pry_.binding_stack.dup'
+        pry_eval {binding_stack.dup}
       end
 
       def command_state
-        eval '_pry_.command_state["cd"]'
+        pry_eval {command_state["cd"]}
       end
 
       def old_stack
-        eval '_pry_.command_state["cd"].old_stack.dup'
+        pry_eval {command_state['cd'].old_stack.dup}
       end
     end
   end

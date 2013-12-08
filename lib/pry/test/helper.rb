@@ -133,6 +133,10 @@ class PryTester
     result
   end
 
+  def pry_eval(&block)
+    pry.instance_eval(&block)
+  end
+
   def push(*lines)
     Array(lines).flatten.each do |line|
       @pry.eval(line)
